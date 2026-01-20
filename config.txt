@@ -1,0 +1,10 @@
+
+
+
+# Creare schema noua
+CONNECT sys/1234@localhost:1521/orcl AS SYSDBA;
+ALTER SESSION SET CONTAINER = orclpdb;
+
+CREATE USER sbd IDENTIFIED BY sbd;
+
+GRANT dba TO sbd;

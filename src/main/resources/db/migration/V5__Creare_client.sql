@@ -1,0 +1,1 @@
+CALL creare_cont('Clientelu', 'Clientescu', '1234567890123', 'client', 'client', 'CLIENT');

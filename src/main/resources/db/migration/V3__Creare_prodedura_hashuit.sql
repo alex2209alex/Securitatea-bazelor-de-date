@@ -1,0 +1,10 @@
+CREATE OR REPLACE PROCEDURE hashuit(
+    input IN VARCHAR2,
+    hash OUT VARCHAR2
+)
+    IS
+BEGIN
+    SELECT STANDARD_HASH(input, 'SHA256')
+    INTO hash
+    FROM dual;
+END;
