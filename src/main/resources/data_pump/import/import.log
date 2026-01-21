@@ -1,0 +1,21 @@
+;;; 
+Import: Release 21.0.0.0.0 - Production on Wed Jan 21 08:04:46 2026
+Version 21.3.0.0.0
+
+Copyright (c) 1982, 2021, Oracle and/or its affiliates.  All rights reserved.
+;;; 
+Connected to: Oracle Database 21c Enterprise Edition Release 21.0.0.0.0 - Production
+Master table "SBD"."SYS_IMPORT_TABLE_01" successfully loaded/unloaded
+Starting "SBD"."SYS_IMPORT_TABLE_01":  sbd/********@//localhost:1521/orclpdb tables=utilizatori,roluri directory=DIREXP dumpfile=FISEXPORT.dmp remap_data=sbd.utilizatori.nume:sbd.pachet_mascare.f_mascare remap_data=sbd.utilizatori.prenume:sbd.pachet_mascare.f_mascare remap_data=sbd.utilizatori.username:sbd.pachet_mascare.f_mascare remap_data=sbd.utilizatori.id:sbd.pachet_mascare.f_mascare 
+Processing object type TABLE_EXPORT/TABLE/TABLE
+Processing object type TABLE_EXPORT/TABLE/TABLE_DATA
+. . imported "SBD"."UTILIZATORI"                         7.875 KB       2 rows
+. . imported "SBD"."ROLURI"                              5.101 KB       4 rows
+Processing object type TABLE_EXPORT/TABLE/GRANT/OWNER_GRANT/OBJECT_GRANT
+Processing object type TABLE_EXPORT/TABLE/AUDIT_OBJ
+Processing object type TABLE_EXPORT/TABLE/CONSTRAINT/CONSTRAINT
+Processing object type TABLE_EXPORT/TABLE/INDEX/STATISTICS/INDEX_STATISTICS
+Processing object type TABLE_EXPORT/TABLE/CONSTRAINT/REF_CONSTRAINT
+Processing object type TABLE_EXPORT/TABLE/STATISTICS/TABLE_STATISTICS
+Processing object type TABLE_EXPORT/TABLE/STATISTICS/MARKER
+Job "SBD"."SYS_IMPORT_TABLE_01" successfully completed at Wed Jan 21 08:05:06 2026 elapsed 0 00:00:18

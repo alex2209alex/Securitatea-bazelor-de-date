@@ -3,10 +3,11 @@ spring:
     name: sbd
   datasource:
     url: jdbc:oracle:thin:@localhost:1521/orclpdb
-    username: aplicatie_java
-    password: 1234
+    username: sbd
+    password: sbd
     driver-class-name: oracle.jdbc.driver.OracleDriver
   flyway:
     baseline-on-migrate: true
     schemas: SBD
     default-schema: SBD
+    baseline-version: 0
