@@ -1,0 +1,90 @@
+-- CREATE OR REPLACE PROCEDURE criptare_cnp(
+--     cnp_necriptat IN VARCHAR2,
+--     cnp_criptat OUT RAW,
+--     cheie_criptare OUT RAW,
+--     vector_initializare OUT RAW
+-- ) AUTHID CURRENT_USER
+-- IS
+--     mod_operare PLS_INTEGER;
+-- BEGIN
+-- cheie_criptare := DBMS_CRYPTO.RANDOMBYTES(16);
+-- vector_initializare := DBMS_CRYPTO.RANDOMBYTES(16);
+--
+-- mod_operare := DBMS_CRYPTO.ENCRYPT_AES128 +
+--                    DBMS_CRYPTO.PAD_PKCS5 +
+--                    DBMS_CRYPTO.CHAIN_CBC;
+--
+-- cnp_criptat := DBMS_CRYPTO.ENCRYPT(
+--             utl_i18n.string_to_raw(cnp_necriptat, 'AL32UTF8'),
+--             mod_operare,
+--             cheie_criptare,
+--             vector_initializare);
+-- commit;
+-- END;
+-- /
+--
+-- CREATE OR REPLACE PROCEDURE hashuit(
+--     input IN VARCHAR2,
+--     hash OUT VARCHAR2
+-- ) AUTHID CURRENT_USER
+-- IS
+-- BEGIN
+-- SELECT STANDARD_HASH(input, 'SHA256')
+-- INTO hash
+-- FROM dual;
+-- END;
+-- /
+--
+-- CREATE OR REPLACE PROCEDURE creare_cont(
+--     nume IN VARCHAR2,
+--     prenume IN VARCHAR2,
+--     cnp IN VARCHAR2,
+--     username IN VARCHAR2,
+--     parola IN VARCHAR2,
+--     rol IN VARCHAR2
+-- ) AUTHID CURRENT_USER
+-- IS
+--     id_utilizator                  NUMBER(18);
+-- cnp_criptat         RAW(16);
+-- hash_parola         VARCHAR2(64);
+-- cheie_criptare      RAW(16);
+-- vector_initializare RAW(16);
+-- BEGIN
+-- id_utilizator := secventa_utilizatori.NEXTVAL;
+-- criptare_cnp(cnp, cnp_criptat, cheie_criptare, vector_initializare);
+-- hashuit(parola, hash_parola);
+--
+-- INSERT INTO utilizatori
+-- VALUES (id_utilizator, nume, prenume, cnp_criptat, username, hash_parola, rol);
+--
+-- INSERT INTO chei_criptari_cnpuri
+-- VALUES (id_utilizator, cheie_criptare, vector_initializare);
+-- commit;
+-- END;
+-- /
+--
+-- CREATE OR REPLACE FUNCTION decriptare_cnp
+-- (
+--     cnp_criptat RAW,
+--     cheie_criptare RAW,
+--     vector_initializare RAW
+-- ) RETURN VARCHAR2 AUTHID CURRENT_USER
+--     IS
+--     mod_operare PLS_INTEGER;
+-- cnp_raw     RAW(16);
+-- BEGIN
+-- mod_operare := DBMS_CRYPTO.ENCRYPT_AES128 +
+--                    DBMS_CRYPTO.PAD_PKCS5 +
+--                    DBMS_CRYPTO.CHAIN_CBC;
+--
+-- cnp_raw := DBMS_CRYPTO.DECRYPT(
+--             cnp_criptat,
+--             mod_operare,
+--             cheie_criptare,
+--             vector_initializare);
+--
+-- RETURN utl_i18n.raw_to_char(cnp_raw, 'AL32UTF8');
+-- END;
+-- /
+
+CALL creare_cont('Clientelu3', 'Clientescu3', '1234567890124', 'client3', 'client3', 'CLIENT');
