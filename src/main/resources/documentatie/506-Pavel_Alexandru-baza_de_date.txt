@@ -1,0 +1,545 @@
+CREATE TABLE roluri
+(
+    rol VARCHAR2(10) NOT NULL PRIMARY KEY
+);
+
+INSERT INTO roluri
+VALUES ('CLIENT');
+
+INSERT INTO roluri
+VALUES ('ANGAJAT');
+
+INSERT INTO roluri
+VALUES ('ANGAJAT_HR');
+
+INSERT INTO roluri
+VALUES ('MANAGER');
+
+CREATE SEQUENCE secventa_utilizatori
+    START WITH 1
+    INCREMENT BY 1;
+
+CREATE TABLE utilizatori
+(
+    id          NUMBER(18)          NOT NULL PRIMARY KEY,
+    nume        VARCHAR2(50)        NOT NULL,
+    prenume     VARCHAR2(50)        NOT NULL,
+    cnp         RAW(16),
+    username    VARCHAR2(50) UNIQUE NOT NULL,
+    hash_parola VARCHAR2(64)        NOT NULL,
+    rol         VARCHAR2(10),
+    CONSTRAINT fk_rol
+        FOREIGN KEY (rol)
+            REFERENCES roluri (rol)
+);
+
+CREATE TABLE chei_criptari_cnpuri
+(
+    id_utilizator       NUMBER(18) NOT NULL PRIMARY KEY,
+    cheie_criptare      RAW(16)    NOT NULL,
+    vector_initializare RAW(16)    NOT NULL,
+    CONSTRAINT fk_id_utilizator
+        FOREIGN KEY (id_utilizator)
+            REFERENCES utilizatori (id)
+);
+
+CREATE TABLE tipuri_de_conturi
+(
+    tip_cont VARCHAR2(10) NOT NULL PRIMARY KEY
+);
+
+INSERT INTO tipuri_de_conturi
+VALUES ('INTERN');
+
+INSERT INTO tipuri_de_conturi
+VALUES ('EXTERN');
+
+CREATE SEQUENCE secventa_conturi
+    START WITH 1
+    INCREMENT BY 1;
+
+CREATE TABLE conturi
+(
+    id       NUMBER(18)   NOT NULL PRIMARY KEY,
+    suma     DECIMAL      NOT NULL,
+    tip_cont VARCHAR2(10) NOT NULL,
+    CONSTRAINT fk_tip_cont
+        FOREIGN KEY (tip_cont)
+            REFERENCES tipuri_de_conturi (tip_cont)
+);
+
+CREATE OR REPLACE PROCEDURE criptare_cnp(
+    cnp_necriptat IN VARCHAR2,
+    cnp_criptat OUT RAW,
+    cheie_criptare OUT RAW,
+    vector_initializare OUT RAW
+)
+    IS
+    mod_operare PLS_INTEGER;
+BEGIN
+    cheie_criptare := DBMS_CRYPTO.RANDOMBYTES(16);
+    vector_initializare := DBMS_CRYPTO.RANDOMBYTES(16);
+
+    mod_operare := DBMS_CRYPTO.ENCRYPT_AES128 +
+                   DBMS_CRYPTO.PAD_PKCS5 +
+                   DBMS_CRYPTO.CHAIN_CBC;
+
+    cnp_criptat := DBMS_CRYPTO.ENCRYPT(
+            utl_i18n.string_to_raw(cnp_necriptat, 'AL32UTF8'),
+            mod_operare,
+            cheie_criptare,
+            vector_initializare);
+    commit;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE hashuit(
+    input IN VARCHAR2,
+    hash OUT VARCHAR2
+)
+    IS
+BEGIN
+    SELECT STANDARD_HASH(input, 'SHA256')
+    INTO hash
+    FROM dual;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE creare_cont(
+    nume IN VARCHAR2,
+    prenume IN VARCHAR2,
+    cnp IN VARCHAR2,
+    username IN VARCHAR2,
+    parola IN VARCHAR2,
+    rol IN VARCHAR2
+)
+    IS
+    id_utilizator                  NUMBER(18);
+    cnp_criptat         RAW(16);
+    hash_parola         VARCHAR2(64);
+    cheie_criptare      RAW(16);
+    vector_initializare RAW(16);
+BEGIN
+    id_utilizator := secventa_utilizatori.NEXTVAL;
+    criptare_cnp(cnp, cnp_criptat, cheie_criptare, vector_initializare);
+    hashuit(parola, hash_parola);
+
+    INSERT INTO utilizatori
+    VALUES (id_utilizator, nume, prenume, cnp_criptat, username, hash_parola, rol);
+
+    INSERT INTO chei_criptari_cnpuri
+    VALUES (id_utilizator, cheie_criptare, vector_initializare);
+    commit;
+END;
+/
+
+CALL creare_cont('Clientelu', 'Clientescu', '1234567890123', 'client', 'client', 'CLIENT');
+/
+
+CREATE OR REPLACE FUNCTION decriptare_cnp
+(
+    cnp_criptat RAW,
+    cheie_criptare RAW,
+    vector_initializare RAW
+)
+    RETURN VARCHAR2
+    IS
+    mod_operare PLS_INTEGER;
+    cnp_raw     RAW(16);
+BEGIN
+    mod_operare := DBMS_CRYPTO.ENCRYPT_AES128 +
+                   DBMS_CRYPTO.PAD_PKCS5 +
+                   DBMS_CRYPTO.CHAIN_CBC;
+
+    cnp_raw := DBMS_CRYPTO.DECRYPT(
+            cnp_criptat,
+            mod_operare,
+            cheie_criptare,
+            vector_initializare);
+
+    RETURN utl_i18n.raw_to_char(cnp_raw, 'AL32UTF8');
+END;
+/
+
+SELECT decriptare_cnp('01603C87ECAE6327A702268860586279', '946D233DE78FAE76620B6B35274DDBE3', '722EE370AB6EED4ACAE05FFA7FCC2253') FROM dual;
+
+ALTER TABLE conturi
+    ADD iban VARCHAR2(24) NOT NULL;
+
+CREATE TABLE conturi_utilizatori
+(
+    id_cont       NUMBER(18) NOT NULL,
+    id_utilizator NUMBER(18) NOT NULL,
+    PRIMARY KEY (id_cont, id_utilizator),
+    CONSTRAINT fk_cont FOREIGN KEY (id_cont)
+        REFERENCES conturi (id),
+    CONSTRAINT fk_utilizator FOREIGN KEY (id_utilizator)
+        REFERENCES utilizatori (id)
+);
+
+CREATE TABLE statusuri_credite
+(
+    status VARCHAR2(20) NOT NULL PRIMARY KEY
+);
+
+INSERT INTO statusuri_credite
+VALUES ('ASTEAPTA_APROBARE');
+
+INSERT INTO statusuri_credite
+VALUES ('RESPINS');
+
+INSERT INTO statusuri_credite
+VALUES ('APROBAT');
+
+CREATE SEQUENCE seq_credite
+    START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE credite
+(
+    id                 NUMBER(18)   NOT NULL PRIMARY KEY,
+    suma               NUMBER(7)    NOT NULL,
+    id_cont_utilizator NUMBER(18)   NOT NULL,
+    id_cont_restituire NUMBER(18),
+    status             VARCHAR2(20) NOT NULL,
+    CONSTRAINT fk_cont_livrare FOREIGN KEY (id_cont_utilizator)
+        REFERENCES conturi (id),
+    CONSTRAINT fk_cont_restituire FOREIGN KEY (id_cont_restituire)
+        REFERENCES conturi (id),
+    CONSTRAINT fk_status FOREIGN KEY (status)
+        REFERENCES statusuri_credite (status)
+);
+
+AUDIT TABLE;
+/
+
+AUDIT INSERT TABLE;
+/
+
+AUDIT DELETE TABLE;
+/
+
+AUDIT UPDATE TABLE;
+/
+
+AUDIT SELECT TABLE;
+/
+
+AUDIT SELECT, INSERT, UPDATE, DELETE ON SBD.utilizatori BY ACCESS WHENEVER NOT SUCCESSFUL;
+/
+
+AUDIT ALTER, GRANT, INSERT, UPDATE, DELETE ON DEFAULT;
+/
+
+AUDIT CREATE ANY VIEW;
+/
+
+AUDIT SESSION;
+/
+
+CREATE SEQUENCE seq_audit_credite
+    START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE audit_credite
+(
+    id           NUMBER(10) PRIMARY KEY,
+    user_actiune VARCHAR2(30),
+    sesiune      NUMBER(10),
+    host         VARCHAR2(100),
+    timp         DATE,
+    status       VARCHAR2(20),
+    CONSTRAINT fk_status_audit FOREIGN KEY (status)
+        REFERENCES statusuri_credite (status)
+);
+
+CREATE OR REPLACE TRIGGER trgigger_audit_update_status_credite
+    BEFORE UPDATE OF status
+    ON credite
+    FOR EACH ROW
+BEGIN
+    INSERT INTO audit_credite
+    VALUES (seq_audit_credite.nextval,
+            SYS_CONTEXT('userenv', 'session_user'),
+            SYS_CONTEXT('userenv', 'sessionid'),
+            SYS_CONTEXT('userenv', 'host'),
+            CURRENT_TIMESTAMP,
+            :NEW.status);
+END;
+/
+
+INSERT INTO conturi
+VALUES (secventa_conturi.nextval, 100, 'EXTERN', 'RO999000000000000000000');
+
+INSERT INTO conturi_utilizatori
+VALUES (1, 1);
+
+INSERT INTO conturi
+VALUES (secventa_conturi.nextval, 10000, 'INTERN', 'RO1110000000000000000000');
+
+INSERT INTO credite
+VALUES (seq_credite.nextval, 1000, 1, null, 'ASTEAPTA_APROBARE');
+
+UPDATE credite
+SET status = 'RESPINS'
+WHERE id = 1;
+
+CREATE OR REPLACE PROCEDURE procedura_audit_credite(object_schema varchar2, object_name varchar2, policy_name varchar2)
+    IS
+BEGIN
+    DBMS_OUTPUT.put_line('Incercare de modificare a unui credit');
+END;
+/
+
+BEGIN
+    DBMS_FGA.add_policy(
+            object_schema=>'sbd',
+            object_name=>'credite',
+            policy_name=>'POLICY_SCHIMBARE_CREDIT',
+            audit_column=>'status',
+            enable=> true,
+            statement_types=>'UPDATE',
+            handler_schema=>'sbd',
+            handler_module=>'PROCEDURA_AUDIT_CREDITE'
+    );
+END;
+/
+
+UPDATE credite
+SET status = 'ASTEAPTA_APROBARE'
+WHERE id = 1;
+/
+
+-- CREATE USER aplicatie_java IDENTIFIED BY "1234";
+--
+-- GRANT CREATE SESSION TO aplicatie_java;
+--
+-- GRANT SELECT, INSERT
+--     ON utilizatori
+--     TO aplicatie_java;
+--
+-- GRANT SELECT, INSERT
+--     ON chei_criptari_cnpuri
+--     TO aplicatie_java;
+--
+-- GRANT SELECT, INSERT
+--     ON conturi_utilizatori
+--     TO aplicatie_java;
+--
+-- GRANT SELECT, INSERT
+--     ON conturi
+--     TO aplicatie_java;
+--
+-- GRANT SELECT, INSERT, UPDATE
+--     ON credite
+--     TO aplicatie_java;
+--
+-- GRANT SELECT ANY SEQUENCE TO aplicatie_java;
+--
+-- GRANT EXECUTE ANY PROCEDURE TO aplicatie_java;
+--
+-- GRANT SELECT, INSERT, UPDATE, DELETE
+--     ON "flyway_schema_history"
+--     TO aplicatie_java;
+
+SELECT * FROM utilizatori;
+
+DELETE FROM conturi WHERE 1=1;
+
+CALL creare_cont('Clientelu2', 'Clientescu2', '1234567890124', 'client2', 'client2', 'CLIENT');
+/
+
+-- CREATE OR REPLACE PROCEDURE criptare_cnp(
+--     cnp_necriptat IN VARCHAR2,
+--     cnp_criptat OUT RAW,
+--     cheie_criptare OUT RAW,
+--     vector_initializare OUT RAW
+-- ) AUTHID CURRENT_USER
+-- IS
+--     mod_operare PLS_INTEGER;
+-- BEGIN
+-- cheie_criptare := DBMS_CRYPTO.RANDOMBYTES(16);
+-- vector_initializare := DBMS_CRYPTO.RANDOMBYTES(16);
+--
+-- mod_operare := DBMS_CRYPTO.ENCRYPT_AES128 +
+--                    DBMS_CRYPTO.PAD_PKCS5 +
+--                    DBMS_CRYPTO.CHAIN_CBC;
+--
+-- cnp_criptat := DBMS_CRYPTO.ENCRYPT(
+--             utl_i18n.string_to_raw(cnp_necriptat, 'AL32UTF8'),
+--             mod_operare,
+--             cheie_criptare,
+--             vector_initializare);
+-- commit;
+-- END;
+-- /
+--
+-- CREATE OR REPLACE PROCEDURE hashuit(
+--     input IN VARCHAR2,
+--     hash OUT VARCHAR2
+-- ) AUTHID CURRENT_USER
+-- IS
+-- BEGIN
+-- SELECT STANDARD_HASH(input, 'SHA256')
+-- INTO hash
+-- FROM dual;
+-- END;
+-- /
+--
+-- CREATE OR REPLACE PROCEDURE creare_cont(
+--     nume IN VARCHAR2,
+--     prenume IN VARCHAR2,
+--     cnp IN VARCHAR2,
+--     username IN VARCHAR2,
+--     parola IN VARCHAR2,
+--     rol IN VARCHAR2
+-- ) AUTHID CURRENT_USER
+-- IS
+--     id_utilizator                  NUMBER(18);
+-- cnp_criptat         RAW(16);
+-- hash_parola         VARCHAR2(64);
+-- cheie_criptare      RAW(16);
+-- vector_initializare RAW(16);
+-- BEGIN
+-- id_utilizator := secventa_utilizatori.NEXTVAL;
+-- criptare_cnp(cnp, cnp_criptat, cheie_criptare, vector_initializare);
+-- hashuit(parola, hash_parola);
+--
+-- INSERT INTO utilizatori
+-- VALUES (id_utilizator, nume, prenume, cnp_criptat, username, hash_parola, rol);
+--
+-- INSERT INTO chei_criptari_cnpuri
+-- VALUES (id_utilizator, cheie_criptare, vector_initializare);
+-- commit;
+-- END;
+-- /
+--
+-- CREATE OR REPLACE FUNCTION decriptare_cnp
+-- (
+--     cnp_criptat RAW,
+--     cheie_criptare RAW,
+--     vector_initializare RAW
+-- ) RETURN VARCHAR2 AUTHID CURRENT_USER
+--     IS
+--     mod_operare PLS_INTEGER;
+-- cnp_raw     RAW(16);
+-- BEGIN
+-- mod_operare := DBMS_CRYPTO.ENCRYPT_AES128 +
+--                    DBMS_CRYPTO.PAD_PKCS5 +
+--                    DBMS_CRYPTO.CHAIN_CBC;
+--
+-- cnp_raw := DBMS_CRYPTO.DECRYPT(
+--             cnp_criptat,
+--             mod_operare,
+--             cheie_criptare,
+--             vector_initializare);
+--
+-- RETURN utl_i18n.raw_to_char(cnp_raw, 'AL32UTF8');
+-- END;
+-- /
+
+CALL creare_cont('Clientelu3', 'Clientescu3', '1234567890124', 'client3', 'client3', 'CLIENT');
+
+CREATE CONTEXT aplicatie_ctx USING proced_aplicatie_ctx;
+
+CREATE OR REPLACE PROCEDURE proced_aplicatie_ctx
+    IS
+BEGIN
+    DBMS_SESSION.set_context(
+            'APLICATIE_CTX',
+            'LAST_LOG_IN',
+            TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS.FF')
+    );
+END;
+/
+
+CREATE OR REPLACE TRIGGER TR_AFTER_LOGON
+    AFTER LOGON
+    ON DATABASE
+BEGIN
+    proced_aplicatie_ctx();
+END;
+/
+
+SELECT SYS_CONTEXT('APLICATIE_CTX', 'LAST_LOG_IN') AS last_log_in
+FROM dual;
+
+CREATE OR REPLACE PACKAGE pachet_mascare
+IS
+    FUNCTION f_mascare(
+        sir VARCHAR2
+    ) RETURN VARCHAR2;
+    FUNCTION f_mascare(
+        nr NUMBER
+    ) RETURN NUMBER;
+END pachet_mascare;
+/
+
+CREATE OR REPLACE PACKAGE BODY pachet_mascare
+IS
+    TYPE tip_tabind IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_tabind tip_tabind;
+    FUNCTION f_mascare(sir VARCHAR2)
+        RETURN VARCHAR2
+        IS
+        v_sir  VARCHAR2(100);
+        v_lung NUMBER;
+    BEGIN
+        v_sir := SUBSTR(sir, 1, 1);
+        SELECT LENGTH(sir)
+        INTO v_lung
+        FROM dual;
+        v_sir := RPAD(v_sir, v_lung, '*');
+        RETURN v_sir;
+    END f_mascare;
+    FUNCTION f_mascare(nr NUMBER)
+        RETURN NUMBER
+        IS
+        lung    NUMBER;
+        minnou  NUMBER;
+        maxnou  NUMBER;
+        l_seed  VARCHAR2(100);
+        v_nrnou NUMBER;
+    BEGIN
+        IF v_tabind.EXISTS(nr) THEN
+            RETURN v_tabind(nr);
+        ELSE
+            lung := LENGTH(TO_CHAR(nr));
+            minnou := TO_NUMBER(
+                    RPAD(SUBSTR(TO_CHAR(nr), 1, 1), lung, '0')
+                      );
+            maxnou := TO_NUMBER(
+                    RPAD(SUBSTR(TO_CHAR(nr), 1, 1), lung, '9')
+                      );
+            l_seed := TO_CHAR(
+                            SYSTIMESTAMP,
+                            'YYYYDDMMHH24MISSFFFF'
+                      );
+            DBMS_RANDOM.SEED(val => l_seed);
+            v_nrnou := ROUND(
+                    DBMS_RANDOM.VALUE(low => minnou, high => maxnou),
+                    0
+                       );
+
+            v_tabind(nr) := v_nrnou;
+            RETURN v_nrnou;
+        END IF;
+    END f_mascare;
+END pachet_mascare;
+/
+
+-- expdp sbd/sbd@orclpdb tables=roluri,utilizatori remap_data=utilizatori.nume:pachet_mascare.f_mascare remap_data=utilzatori.prenume:pachet_mascare.f_mascare remap_data=utilizatori.username:pachet_mascare.f_mascare remap_data=utilzatori.id:pachet_mascare.f_mascare directory=DIREXP dumpfile=FISEXPORT.dmp
+-- impdp sbd/sbd@orclpdb tables=roluri,utilizatori remap_data=utilizatori.nume:pachet_mascare.f_mascare remap_data=utilzatori.prenume:pachet_mascare.f_mascare remap_data=utilizatori.username:pachet_mascare.f_mascare remap_data=utilzatori.id:pachet_mascare.f_mascare directory=DIREXP dumpfile=FISEXPORT.dmp
+
+CALL creare_cont('Angajat', 'Simplu', '2234567890123', 'angajat', 'angajat', 'ANGAJAT');
+/
+
+CALL creare_cont('Angajat', 'HR', '3234567890123', 'angajat_hr', 'angajat_hr', 'ANGAJAT_HR');
+/
+
+CALL creare_cont('Manager', 'Manager', '4234567890123', 'manager', 'manager', 'MANAGER');
+/
+
+INSERT INTO conturi
+VALUES (secventa_conturi.nextval, 100, 'INTERN', 'RO111000000000000000000');
+
+INSERT INTO conturi
+VALUES (secventa_conturi.nextval, 100, 'INTERN', 'RO111000000000000000001');
