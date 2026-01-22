@@ -1,0 +1,33 @@
+package ro.unibuc.fmi.sbd.controller;
+
+import org.springframework.web.bind.annotation.*;
+import ro.unibuc.fmi.sbd.dto.AngajatDto;
+import ro.unibuc.fmi.sbd.dto.CreareClientDto;
+import ro.unibuc.fmi.sbd.dto.ModificareDateAngajatDto;
+import ro.unibuc.fmi.sbd.service.UtilizatorService;
+
+import java.util.List;
+
+@RestController
+public class UtilizatorController {
+    private final UtilizatorService utilizatorService;
+
+    public UtilizatorController(UtilizatorService utilizatorService) {
+        this.utilizatorService = utilizatorService;
+    }
+
+    @PostMapping(value = "/clienti")
+    public void creareClient(@RequestBody CreareClientDto dto) {
+        utilizatorService.creareClient(dto);
+    }
+
+    @PutMapping(value = "/utilizatori/{id}")
+    public void modificareDateAngajat(@PathVariable("id") Long id, @RequestBody ModificareDateAngajatDto dto) {
+        utilizatorService.modificareDateAngajat(id, dto);
+    }
+
+    @GetMapping(value = "/utilizatori")
+    public List<AngajatDto> vizualizareAngajat() {
+        return utilizatorService.vizualizareAngajati();
+    }
+}
