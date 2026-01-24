@@ -8,6 +8,7 @@ import ro.unibuc.fmi.sbd.entity.*;
 import ro.unibuc.fmi.sbd.repository.ContRepository;
 import ro.unibuc.fmi.sbd.repository.CreditRepository;
 import ro.unibuc.fmi.sbd.repository.UtilizatorRepository;
+import ro.unibuc.fmi.sbd.security.UtilizatorHelper;
 
 import java.util.List;
 
@@ -16,17 +17,19 @@ public class CreditService {
     private final CreditRepository creditRepository;
     private final ContRepository contRepository;
     private final UtilizatorRepository utilizatorRepository;
+    private final UtilizatorHelper utilizatorHelper;
 
-    public CreditService(CreditRepository creditRepository, ContRepository contRepository, UtilizatorRepository utilizatorRepository) {
+    public CreditService(CreditRepository creditRepository, ContRepository contRepository, UtilizatorRepository utilizatorRepository, UtilizatorHelper utilizatorHelper) {
         this.creditRepository = creditRepository;
         this.contRepository = contRepository;
         this.utilizatorRepository = utilizatorRepository;
+        this.utilizatorHelper = utilizatorHelper;
     }
 
     @Transactional
     public void creareCerereCredit(CreareCreditDto creareCreditDto) {
         Cont cont = contRepository.findByIban(creareCreditDto.getIban()).orElseThrow(() -> new RuntimeException("Iban incorect"));
-        cont.getUtilizatori().stream().filter(utilizator -> utilizator.getId() == 1)
+        cont.getUtilizatori().stream().filter(utilizator -> utilizator.getId().equals(utilizatorHelper.getCurrentUserId()))
                 .findFirst().orElseThrow(() -> new RuntimeException("Iban incorect"));
         Credit credit = new Credit();
         credit.setContUtilizator(cont);
@@ -38,10 +41,8 @@ public class CreditService {
     @Transactional
     public void aprobareCredit(Long id) {
         Credit credit = creditRepository.findById(id).orElseThrow(() -> new RuntimeException("Credit inexistent"));
-        if (credit.getSuma() <= 5000) {
-
-        } else {
-
+        if (credit.getSuma() > 5000 && utilizatorHelper.getCurrentUserRol() != Rol.MANAGER) {
+            throw new RuntimeException("Credit nu poate fi aprobat");
         }
         if (credit.getStatus() != StatusCredit.ASTEAPTA_APROBARE) {
             throw new RuntimeException("Credit nu poate fi aprobat");
@@ -63,10 +64,10 @@ public class CreditService {
 
     @Transactional
     public List<CreditDto> vizualizareCredite() {
-        Rol rol = Rol.MANAGER;
+        Rol rol = utilizatorHelper.getCurrentUserRol();
         switch (rol) {
             case Rol.CLIENT -> {
-                Utilizator utilizator = utilizatorRepository.findById(1L).orElseThrow(() -> new RuntimeException("Utilizator inexistent"));
+                Utilizator utilizator = utilizatorRepository.findById(utilizatorHelper.getCurrentUserId()).orElseThrow(() -> new RuntimeException("Utilizator inexistent"));
                 return utilizator.getConturi().stream()
                         .map(Cont::getCrediteLivrateInCont)
                         .flatMap(List::stream)

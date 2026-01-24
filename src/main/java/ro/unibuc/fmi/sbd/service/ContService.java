@@ -9,6 +9,7 @@ import ro.unibuc.fmi.sbd.entity.TipCont;
 import ro.unibuc.fmi.sbd.entity.Utilizator;
 import ro.unibuc.fmi.sbd.repository.ContRepository;
 import ro.unibuc.fmi.sbd.repository.UtilizatorRepository;
+import ro.unibuc.fmi.sbd.security.UtilizatorHelper;
 
 import java.util.List;
 
@@ -16,15 +17,17 @@ import java.util.List;
 public class ContService {
     private final UtilizatorRepository utilizatorRepository;
     private final ContRepository contRepository;
+    private final UtilizatorHelper utilizatorHelper;
 
-    public ContService(UtilizatorRepository utilizatorRepository, ContRepository contRepository) {
+    public ContService(UtilizatorRepository utilizatorRepository, ContRepository contRepository, UtilizatorHelper utilizatorHelper) {
         this.utilizatorRepository = utilizatorRepository;
         this.contRepository = contRepository;
+        this.utilizatorHelper = utilizatorHelper;
     }
 
     @Transactional
     public void creareCont() {
-        Utilizator utilizator = utilizatorRepository.findById(1L).orElseThrow(() -> new RuntimeException(""));
+        Utilizator utilizator = utilizatorRepository.findById(utilizatorHelper.getCurrentUserId()).orElseThrow(() -> new RuntimeException(""));
         Cont cont = new Cont();
         cont.setSuma(0.);
         cont.setTipCont(TipCont.EXTERN);
@@ -34,10 +37,10 @@ public class ContService {
 
     @Transactional(readOnly = true)
     public List<ContDto> vizualizareConturi() {
-        Rol rol = Rol.MANAGER;
+        Rol rol = utilizatorHelper.getCurrentUserRol();
 
         if (rol == Rol.CLIENT) {
-            Utilizator utilizator = utilizatorRepository.findById(1L).orElseThrow(() -> new RuntimeException(""));
+            Utilizator utilizator = utilizatorRepository.findById(utilizatorHelper.getCurrentUserId()).orElseThrow(() -> new RuntimeException(""));
             return utilizator.getConturi().stream()
                     .map(cont -> {
                         ContDto contDto = new ContDto();

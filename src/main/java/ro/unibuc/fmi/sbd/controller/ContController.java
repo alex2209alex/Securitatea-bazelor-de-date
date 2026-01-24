@@ -1,5 +1,6 @@
 package ro.unibuc.fmi.sbd.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,11 +18,13 @@ public class ContController {
     }
 
     @PostMapping(value = "/conturi")
+    @PreAuthorize("hasAnyAuthority('CLIENT')")
     public void creareCont() {
         contService.creareCont();
     }
 
     @GetMapping(value = "/conturi")
+    @PreAuthorize("hasAnyAuthority('CLIENT', 'ANGAJAT', 'MANAGER')")
     public List<ContDto> vizualizareConturi() {
         return contService.vizualizareConturi();
     }

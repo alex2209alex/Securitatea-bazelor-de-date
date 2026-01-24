@@ -1,5 +1,7 @@
 package ro.unibuc.fmi.sbd.controller;
 
+import jakarta.annotation.security.PermitAll;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import ro.unibuc.fmi.sbd.dto.AngajatDto;
 import ro.unibuc.fmi.sbd.dto.CreareClientDto;
@@ -22,12 +24,14 @@ public class UtilizatorController {
     }
 
     @PutMapping(value = "/utilizatori/{id}")
+    @PreAuthorize("hasAnyAuthority('ANGAJAT_HR')")
     public void modificareDateAngajat(@PathVariable("id") Long id, @RequestBody ModificareDateAngajatDto dto) {
         utilizatorService.modificareDateAngajat(id, dto);
     }
 
     @GetMapping(value = "/utilizatori")
-    public List<AngajatDto> vizualizareAngajat() {
+    @PreAuthorize("hasAnyAuthority('ANGAJAT_HR')")
+    public List<AngajatDto> vizualizareAngajati() {
         return utilizatorService.vizualizareAngajati();
     }
 }
